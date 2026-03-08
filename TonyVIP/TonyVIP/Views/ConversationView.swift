@@ -74,7 +74,7 @@ struct MessageBubbleView: View {
                 // Bubble
                 Text(message.body)
                     .font(.system(size: 15))
-                    .foregroundStyle(message.isFromTony ? .black : .primary)
+                    .foregroundStyle(message.isFromTony ? Color.black : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
@@ -167,7 +167,7 @@ struct ComposeBar: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(draftText.isEmpty ? .tertiary : .black)
+                    .foregroundStyle(draftText.isEmpty ? Color.secondary : Color.black)
                     .frame(width: 34, height: 34)
                     .background(
                         draftText.isEmpty ? Color(hex: "1c1914") : Color(hex: "f59e0b"),

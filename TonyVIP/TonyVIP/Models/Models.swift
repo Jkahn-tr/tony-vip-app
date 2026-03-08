@@ -3,13 +3,14 @@ import SwiftUI
 
 // MARK: - VIP Contact
 
-struct VIPContact: Identifiable, Hashable {
+struct VIPContact: Identifiable, Hashable, Equatable {
     let id: UUID
     var name: String
     var role: String
     var organization: String
     var avatarInitials: String
-    var avatarColor: Color
+    var avatarColorHex: String          // store as hex, compute Color on use
+    var avatarColor: Color { Color(hex: avatarColorHex) }
     var phone: String?
     var email: String?
     var relationshipHealth: RelationshipHealth
@@ -25,6 +26,10 @@ struct VIPContact: Identifiable, Hashable {
         guard let last = lastContactedAt else { return nil }
         return Calendar.current.dateComponents([.day], from: last, to: .now).day
     }
+
+    // Manual Hashable — hash on id only
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: VIPContact, rhs: VIPContact) -> Bool { lhs.id == rhs.id }
 }
 
 enum RelationshipHealth: String, CaseIterable {
@@ -94,7 +99,7 @@ enum MessageChannel: String {
 
 // MARK: - Contact Note
 
-struct ContactNote: Identifiable {
+struct ContactNote: Identifiable, Hashable, Equatable {
     let id: UUID
     var body: String
     var createdAt: Date
@@ -103,7 +108,7 @@ struct ContactNote: Identifiable {
 
 // MARK: - RPM Reference
 
-struct RPMReference: Identifiable {
+struct RPMReference: Identifiable, Hashable, Equatable {
     let id: UUID
     var projectName: String
     var outcome: String
@@ -111,7 +116,7 @@ struct RPMReference: Identifiable {
     var status: RPMStatus
 }
 
-enum RPMStatus: String {
+enum RPMStatus: String, Hashable {
     case active    = "Active"
     case pending   = "Pending"
     case complete  = "Complete"
@@ -127,7 +132,7 @@ enum RPMStatus: String {
 
 // MARK: - Pending Item
 
-struct PendingItem: Identifiable {
+struct PendingItem: Identifiable, Hashable, Equatable {
     let id: UUID
     var title: String
     var dueDate: Date?
@@ -136,7 +141,7 @@ struct PendingItem: Identifiable {
 
 // MARK: - Blaze Context (AI-generated summary)
 
-struct BlazeContext {
+struct BlazeContext: Hashable, Equatable {
     var summary: String
     var suggestedOpener: String?
     var keyFacts: [String]

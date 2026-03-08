@@ -4,7 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: .constant(.detail)) {
             InboxView()
         } detail: {
             if let contact = store.selectedContact {
