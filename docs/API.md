@@ -1,6 +1,6 @@
 # Blaze API Contracts
 **Version:** v1  
-**Base URL:** `https://api.blaze.tonyrobbins.com/api/v1` *(TBD — Bartok to confirm)*  
+**Base URL:** `https://blaze-api.supabase.co/functions/v1`  
 **Auth:** `Authorization: Bearer <token>` on all requests  
 **Content-Type:** `application/json`
 
@@ -59,7 +59,7 @@ Returns the AI-generated Blaze context card for a contact.
 
 Triggers a fresh Claude-generated opener based on latest interaction history.
 
-**Request** *(empty body or optional hint)*
+**Request**
 ```json
 {
   "hint": "string | null"
@@ -172,7 +172,7 @@ Create or update a note for a contact.
 | `channel` | text | **call / text / email / in_person** |
 | `duration_seconds` | int | null for text/email |
 | `initiated_by` | text | **tony / contact** |
-| `notes` | text | Optional context captured post-interaction |
+| `notes` | text | Optional context post-interaction |
 | `occurred_at` | timestamptz | |
 | `created_at` | timestamptz | |
 
@@ -182,13 +182,10 @@ Create or update a note for a contact.
 
 ## Relationship Scoring Engine
 
-### Time-Decay Formula *(proposed)*
+### Time-Decay Formula
 ```
-score = base_weight × e^(-λ × days_since_contact)
+score = base_weight × initiated_multiplier × e^(-λ × days_since_contact)
 ```
-Where:
-- `base_weight` = interaction weight (see below)
-- `λ` = decay constant (tune per tier — Inner Circle decays slower)
 
 ### Interaction Weights
 | Channel | Weight |
@@ -200,8 +197,11 @@ Where:
 | Email | 0.3 |
 | Reaction / like | 0.1 |
 
+**`initiated_by` = tony multiplier: 1.5×** — Tony reaching out signals stronger intent than receiving.  
+**V2 — `sentiment_boost`:** Claude detects positive sentiment → +0.1 to weight. Not blocking for v1.
+
 ### Health Thresholds
-| Score | Health | Alert? |
+| Score | Health | APNs Alert? |
 |---|---|---|
 | 0.75 – 1.0 | Strong | No |
 | 0.50 – 0.74 | Good | No |
@@ -211,18 +211,18 @@ Where:
 ### Tier Decay Rates (λ)
 | Tier | λ | Notes |
 |---|---|---|
-| Inner Circle | 0.02 | Slow decay — these are daily relationships |
+| Inner Circle | 0.02 | Slow decay — daily relationships |
 | VIP | 0.04 | Standard decay |
-| Key Contact | 0.07 | Faster decay — lower touch expected |
+| Key Contact | 0.07 | Higher touch threshold |
 
 ---
 
 ## Auth
 
-**Phase 1:** Static Bearer token per device. Token issued at first launch, stored in Keychain.  
-**Phase 2 (if App Store):** OAuth 2.0 PKCE flow with token refresh.
+**Phase 1:** Static service token from Supabase dashboard → stored in iOS Keychain (`BlazeKeychain`).  
+**Phase 2:** Supabase Auth + Apple Sign-In → auto-refresh JWT tokens.  
+For dev/testing: hardcode token in `BlazeKeychain.serviceToken`.
 
 ---
 
-*Draft — Bartok to confirm base URL, token issuance flow, and scoring constants.*  
-*Inigo wires RealBlazeService once confirmed.*
+*Confirmed by Bartok — March 8, 2026. RealBlazeService wired.*
