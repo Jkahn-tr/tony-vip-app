@@ -150,13 +150,52 @@ struct BlazeContext: Hashable, Equatable {
 
 // MARK: - App Store
 
+@MainActor
 class AppStore: ObservableObject {
+
+    // MARK: Published state
     @Published var contacts: [VIPContact] = SampleData.contacts
-    @Published var messages: [Message] = SampleData.messages
+    @Published var messages: [Message] = []
     @Published var selectedContact: VIPContact?
     @Published var searchQuery: String = ""
     @Published var selectedTier: ContactTier? = nil
     @Published var selectedHealth: RelationshipHealth? = nil
+    @Published var isSendingMessage: Bool = false
+    @Published var blazeError: String? = nil
+
+    // MARK: Services — swap MockBlazeService → RealBlazeService when ready
+    private let blazeService: any BlazeServiceProtocol
+    private let persistence: PersistenceController
+
+    init(
+        blazeService: any BlazeServiceProtocol = MockBlazeService(),
+        persistence: PersistenceController = .shared
+    ) {
+        self.blazeService = blazeService
+        self.persistence = persistence
+        bootstrap()
+    }
+
+    // MARK: Bootstrap — seed + load persisted data
+
+    private func bootstrap() {
+        persistence.seedIfEmpty()
+        messages = persistence.allMessages()
+
+        // Hydrate persisted relationship health overrides
+        for i in contacts.indices {
+            if let health = persistence.health(for: contacts[i].id) {
+                contacts[i].relationshipHealth = health
+            }
+            // Hydrate persisted notes
+            let persistedNotes = persistence.notes(for: contacts[i].id)
+            if !persistedNotes.isEmpty {
+                contacts[i].notes = persistedNotes
+            }
+        }
+    }
+
+    // MARK: Filtering
 
     var filteredContacts: [VIPContact] {
         var list = contacts
@@ -172,6 +211,8 @@ class AppStore: ObservableObject {
         return list.sorted { ($0.lastContactedAt ?? .distantPast) > ($1.lastContactedAt ?? .distantPast) }
     }
 
+    // MARK: Message helpers
+
     func messages(for contact: VIPContact) -> [Message] {
         messages.filter { $0.contactId == contact.id }
                 .sorted { $0.sentAt < $1.sentAt }
@@ -183,16 +224,77 @@ class AppStore: ObservableObject {
 
     func markAllRead(for contact: VIPContact) {
         for i in messages.indices where messages[i].contactId == contact.id {
-            messages[i].isRead = true
+            if !messages[i].isRead {
+                messages[i].isRead = true
+                persistence.markRead(messageId: messages[i].id)
+            }
         }
     }
 
+    // MARK: Send — async, Blaze-backed, persisted
+
     func send(text: String, to contact: VIPContact) {
-        let msg = Message(
-            id: UUID(), contactId: contact.id, body: text,
-            isFromTony: true, sentAt: .now, channel: .blaze, isRead: true
-        )
-        messages.append(msg)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isSendingMessage = true
+        blazeError = nil
+
+        Task {
+            do {
+                let msg = try await blazeService.sendMessage(trimmed, to: contact)
+                messages.append(msg)
+                persistence.save(message: msg)
+            } catch {
+                // Fallback: insert locally even if Blaze is down
+                let fallback = Message(
+                    id: UUID(), contactId: contact.id, body: trimmed,
+                    isFromTony: true, sentAt: .now, channel: .blaze, isRead: true
+                )
+                messages.append(fallback)
+                persistence.save(message: fallback)
+                blazeError = error.localizedDescription
+            }
+            isSendingMessage = false
+        }
+    }
+
+    // MARK: Refresh relationship health via Blaze
+
+    func refreshHealth(for contact: VIPContact) {
+        guard let idx = contacts.firstIndex(of: contact) else { return }
+        Task {
+            do {
+                let health = try await blazeService.refreshHealth(for: contact)
+                contacts[idx].relationshipHealth = health
+                persistence.saveHealth(health, days: contact.daysSinceContact, for: contact.id)
+            } catch {
+                blazeError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: Notes — write-through to SwiftData
+
+    func addNote(_ body: String, to contact: VIPContact, pinned: Bool = false) {
+        guard let idx = contacts.firstIndex(of: contact) else { return }
+        let note = ContactNote(id: UUID(), body: body, createdAt: .now, isPinned: pinned)
+        contacts[idx].notes.insert(note, at: 0)
+        persistence.save(note: note, for: contact.id)
+    }
+
+    func deleteNote(_ note: ContactNote, from contact: VIPContact) {
+        guard let idx = contacts.firstIndex(of: contact) else { return }
+        contacts[idx].notes.removeAll { $0.id == note.id }
+        persistence.deleteNote(id: note.id)
+    }
+
+    func togglePin(_ note: ContactNote, for contact: VIPContact) {
+        guard let cIdx = contacts.firstIndex(of: contact),
+              let nIdx = contacts[cIdx].notes.firstIndex(of: note) else { return }
+        contacts[cIdx].notes[nIdx].isPinned.toggle()
+        let updated = contacts[cIdx].notes[nIdx]
+        persistence.save(note: updated, for: contact.id)
     }
 }
 

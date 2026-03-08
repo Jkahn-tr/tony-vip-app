@@ -1,16 +1,23 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct TonyVIPApp: App {
-    @StateObject private var store = AppStore()
+
+    // Phase 2: SwiftData + BlazeService injected here.
+    // To go live: swap MockBlazeService → RealBlazeService(baseURL:authToken:)
+    @StateObject private var store = AppStore(
+        blazeService: MockBlazeService(),
+        persistence: .shared
+    )
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .modelContainer(PersistenceController.shared.container)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    // Auto-select first contact so the chat screen is visible immediately
                     if store.selectedContact == nil {
                         store.selectedContact = store.contacts.first
                     }
