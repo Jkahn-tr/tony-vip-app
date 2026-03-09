@@ -7,7 +7,7 @@ struct TonyVIPApp: App {
     // Phase 2: SwiftData + BlazeService injected here.
     // To go live: swap MockBlazeService → RealBlazeService(baseURL:authToken:)
     @StateObject private var store = AppStore(
-        blazeService: MockBlazeService(),
+        blazeService: RealBlazeService(),
         persistence: .shared
     )
 

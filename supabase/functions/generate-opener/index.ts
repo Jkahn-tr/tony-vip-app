@@ -11,7 +11,8 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url)
-    const contactId = url.pathname.split("/").at(-2) // /contacts/{id}/opener/generate
+    // Extract UUID from path: /generate-opener/contacts/{uuid}/opener/generate
+    const contactId = url.pathname.split("/").find(s => /^[0-9a-f-]{36}$/i.test(s))
     const { hint } = await req.json().catch(() => ({ hint: null }))
 
     const supabase = createClient(

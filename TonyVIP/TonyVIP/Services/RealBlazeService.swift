@@ -13,7 +13,7 @@ import Foundation
 
 struct RealBlazeService: BlazeServiceProtocol {
 
-    private let baseURL = URL(string: "https://blaze-api.supabase.co/functions/v1")!
+    private let baseURL = URL(string: "https://iliwzxosbuzkcgdwuajj.supabase.co/functions/v1")!
     private let token: String
 
     // For dev/testing — replace with Keychain read in production
@@ -28,7 +28,7 @@ struct RealBlazeService: BlazeServiceProtocol {
     // MARK: - fetchContext
 
     func fetchContext(for contact: VIPContact) async throws -> BlazeContext {
-        let url = baseURL.appendingPathComponent("contacts/\(contact.id)/context")
+        let url = baseURL.appendingPathComponent("get-context/contacts/\(contact.id)/context")
         let data = try await get(url)
         let raw = try JSONDecoder.blaze.decode(ContextResponse.self, from: data)
         return BlazeContext(
@@ -42,7 +42,7 @@ struct RealBlazeService: BlazeServiceProtocol {
     // MARK: - sendMessage
 
     func sendMessage(_ text: String, to contact: VIPContact) async throws -> Message {
-        let url = baseURL.appendingPathComponent("messages/send")
+        let url = baseURL.appendingPathComponent("send-message")
         let body: [String: Any] = [
             "contact_id": contact.id.uuidString,
             "body": text,
@@ -64,7 +64,7 @@ struct RealBlazeService: BlazeServiceProtocol {
     // MARK: - refreshHealth
 
     func refreshHealth(for contact: VIPContact) async throws -> RelationshipHealth {
-        let url = baseURL.appendingPathComponent("contacts/\(contact.id)/health")
+        let url = baseURL.appendingPathComponent("get-health/contacts/\(contact.id)/health")
         let data = try await get(url)
         let raw = try JSONDecoder.blaze.decode(HealthResponse.self, from: data)
         return RelationshipHealth(rawValue: raw.health) ?? .good
@@ -73,7 +73,7 @@ struct RealBlazeService: BlazeServiceProtocol {
     // MARK: - generateOpener
 
     func generateOpener(for contact: VIPContact) async throws -> String {
-        let url = baseURL.appendingPathComponent("contacts/\(contact.id)/opener/generate")
+        let url = baseURL.appendingPathComponent("generate-opener/contacts/\(contact.id)/opener/generate")
         let data = try await post(url, body: ["hint": NSNull()])
         let raw = try JSONDecoder.blaze.decode(OpenerResponse.self, from: data)
         return raw.opener
